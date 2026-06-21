@@ -334,6 +334,25 @@ Optional environment variables::
 
      make TARGET=IOS32 ipa
 
+Signing and installing on an iOS device
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``make TARGET=IOS64 ipa`` produces an *unsigned* ``output/IOS64/xcsoar.ipa``.
+To sign it and install it on a connected device, run::
+
+  ./darwin/sign.sh
+  ./darwin/install.sh
+
+When run from a terminal, these scripts prompt for whatever they need: the
+signing script discovers the provisioning profiles and code-signing
+identities available on your Mac and lets you pick one, and the install
+script lets you pick a connected device.  Each choice can be saved to
+``darwin/.env`` so subsequent runs are non-interactive.
+
+For unattended use (CI, Xcode build phases) provide the values up front via
+environment variables or ``darwin/.env`` (see ``darwin/.env.example``); the
+scripts then run without prompting.
+
 Compiling for macOS (with Homebrew)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

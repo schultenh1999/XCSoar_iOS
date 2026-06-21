@@ -8,18 +8,33 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
   source "$SCRIPT_DIR/.env"
 fi
 
+# shellcheck source=darwin/lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
 # Configuration
 IPA_SIGNED_PATH="${IOS_SIGNED_IPA_PATH:-$(pwd)/output/IOS64/xcsoar-signed.ipa}"
 DEVICE_NAME="${IOS_DEVICE_NAME:-}"
 BUNDLE_ID="${IOS_BUNDLE_ID:-"XCSoar"}"
 
-# Validate required environment variables
+# Resolve the target device: prompt interactively when unset and a terminal
+# is available, otherwise fall back to the env-or-fail behaviour.
 if [[ -z "$DEVICE_NAME" ]]; then
-  echo "❌ IOS_DEVICE_NAME not set"
-  echo "Set it via: export IOS_DEVICE_NAME='Your Device Name'"
-  echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
-  echo "To find device name run: xcrun devicectl list devices"
-  exit 1
+  if is_interactive; then
+    DEVICE_NAME="$(select_device)" || exit 1
+    if [[ -z "$DEVICE_NAME" ]]; then
+      echo "❌ No device selected."
+      exit 1
+    fi
+    ask_yes_no "Save this device to darwin/.env for next time?" \
+      && save_env_var IOS_DEVICE_NAME "$DEVICE_NAME"
+  else
+    echo "❌ IOS_DEVICE_NAME not set"
+    echo "Set it via: export IOS_DEVICE_NAME='Your Device Name'"
+    echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
+    echo "To find device name run: xcrun devicectl list devices"
+    echo "Or run this script from a terminal to choose one interactively."
+    exit 1
+  fi
 fi
 
 # Input validation

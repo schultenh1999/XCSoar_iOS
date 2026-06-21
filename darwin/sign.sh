@@ -8,27 +8,48 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
   source "$SCRIPT_DIR/.env"
 fi
 
+# shellcheck source=darwin/lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
 # Input configuration (with defaults)
 IPA_PATH="${IOS_IPA_PATH:-$(pwd)/output/IOS64/xcsoar.ipa}"
 PROFILE_PATH="${IOS_PROFILE_PATH:-}"
-CERTIFICATE_NAME="${APPLE_DISTRIBUTION_CERTIFICATE_NAME:-}"
+# Accept the documented IOS_CERTIFICATE_NAME and the legacy/CI name.
+CERTIFICATE_NAME="${IOS_CERTIFICATE_NAME:-${APPLE_DISTRIBUTION_CERTIFICATE_NAME:-}}"
 
 # Output configuration
 IPA_SIGNED_PATH="${IOS_SIGNED_IPA_PATH:-$(pwd)/output/IOS64/xcsoar-signed.ipa}"
 
-# Validate required environment variables
+# Resolve the provisioning profile: prompt interactively when unset and a
+# terminal is available, otherwise fall back to the env-or-fail behaviour
+# that CI and Xcode build phases rely on.
 if [[ -z "$PROFILE_PATH" ]]; then
-  echo "❌ IOS_PROFILE_PATH not set"
-  echo "Set it via: export IOS_PROFILE_PATH=/path/to/profile.mobileprovision"
-  echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
-  exit 1
+  if is_interactive; then
+    PROFILE_PATH="$(select_provisioning_profile)" || exit 1
+    ask_yes_no "Save this profile to darwin/.env for next time?" \
+      && save_env_var IOS_PROFILE_PATH "$PROFILE_PATH"
+  else
+    echo "❌ IOS_PROFILE_PATH not set"
+    echo "Set it via: export IOS_PROFILE_PATH=/path/to/profile.mobileprovision"
+    echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
+    echo "Or run this script from a terminal to choose one interactively."
+    exit 1
+  fi
 fi
 
+# Resolve the signing identity the same way.
 if [[ -z "$CERTIFICATE_NAME" ]]; then
-  echo "❌ APPLE_DISTRIBUTION_CERTIFICATE_NAME not set"
-  echo "Set it via: export APPLE_DISTRIBUTION_CERTIFICATE_NAME='Apple Distribution: ...'"
-  echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
-  exit 1
+  if is_interactive; then
+    CERTIFICATE_NAME="$(select_signing_identity)" || exit 1
+    ask_yes_no "Save this signing identity to darwin/.env for next time?" \
+      && save_env_var IOS_CERTIFICATE_NAME "$CERTIFICATE_NAME"
+  else
+    echo "❌ Signing identity not set (IOS_CERTIFICATE_NAME / APPLE_DISTRIBUTION_CERTIFICATE_NAME)"
+    echo "Set it via: export IOS_CERTIFICATE_NAME='Apple Distribution: ...'"
+    echo "Or configure it in $SCRIPT_DIR/.env (see .env.example)"
+    echo "Or run this script from a terminal to choose one interactively."
+    exit 1
+  fi
 fi
 
 # Guard against missing build artefact
