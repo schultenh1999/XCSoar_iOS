@@ -52,23 +52,60 @@
 }
 
 #if TARGET_OS_IPHONE
+- (void) handleAuthorizationStatus:(CLAuthorizationStatus)status
+                           manager:(CLLocationManager *)manager
+{
+  switch (status) {
+  case kCLAuthorizationStatusAuthorizedAlways:
+    // "Always" permission: enable background updates, then start.
+    if (@available(iOS 9.0, *)) {
+      manager.allowsBackgroundLocationUpdates = YES;
+    }
+    if (@available(iOS 11.0, *)) {
+      manager.showsBackgroundLocationIndicator = NO;
+    }
+    [manager startUpdatingLocation];
+    break;
+
+  case kCLAuthorizationStatusAuthorizedWhenInUse:
+    /* "When In Use" permission: start updates so the GPS works in the
+       foreground.  startUpdatingLocation must be called unconditionally
+       here -- requestAlwaysAuthorization only prompts once and does not
+       change the status (nor fire this delegate) if the user keeps "While
+       Using", so relying on the callback to start updates would leave the
+       GPS dead.  Background updates need "Always", so request the
+       upgrade as well. */
+    [manager startUpdatingLocation];
+    if (@available(iOS 11.0, *)) {
+      [manager requestAlwaysAuthorization];
+    }
+    break;
+
+  case kCLAuthorizationStatusNotDetermined:
+    // First time: request "When In Use" first.
+    [manager requestWhenInUseAuthorization];
+    break;
+
+  default:
+    /* Denied or restricted: still start updates so the GPS recovers
+       automatically if the user later enables location in Settings. */
+    [manager startUpdatingLocation];
+    break;
+  }
+}
+
 - (void) locationManager:(CLLocationManager *)manager
     didChangeAuthorizationStatus:(CLAuthorizationStatus)status
 {
-  if ((status == kCLAuthorizationStatusAuthorizedAlways)
-      || (status == kCLAuthorizationStatusAuthorizedWhenInUse)) {
-    [manager startUpdatingLocation];
-    
-    // Configure for background location if we have "Always" permission
-    if (status == kCLAuthorizationStatusAuthorizedAlways) {
-      if (@available(iOS 9.0, *)) {
-        manager.allowsBackgroundLocationUpdates = YES;
-      }
-      if (@available(iOS 11.0, *)) {
-        manager.showsBackgroundLocationIndicator = NO;
-      }
-    }
-  }
+  // Deprecated since iOS 14, but still required for iOS < 14.
+  [self handleAuthorizationStatus:status manager:manager];
+}
+
+- (void) locationManagerDidChangeAuthorization:(CLLocationManager *)manager
+    API_AVAILABLE(ios(14.0))
+{
+  // iOS 14+ replacement for the deprecated callback above.
+  [self handleAuthorizationStatus:manager.authorizationStatus manager:manager];
 }
 #endif
 
@@ -206,30 +243,19 @@ void InternalSensors::Init()
   
   if ([location_manager
       respondsToSelector: @selector(requestWhenInUseAuthorization)]) {
-    CLAuthorizationStatus status = [CLLocationManager authorizationStatus];
-    if (status == kCLAuthorizationStatusAuthorizedAlways) {
-      // We already have "Always" permission, configure for background and start
-      if (@available(iOS 9.0, *)) {
-        location_manager.allowsBackgroundLocationUpdates = YES;
-      }
-      if (@available(iOS 11.0, *)) {
-        location_manager.showsBackgroundLocationIndicator = NO;
-      }
-      [location_manager startUpdatingLocation];
-    } else if (status == kCLAuthorizationStatusAuthorizedWhenInUse) {
-      // We have "When In Use", request upgrade to "Always" for background usage
-      if (@available(iOS 11.0, *)) {
-        [location_manager requestAlwaysAuthorization];
-      } else {
-        [location_manager startUpdatingLocation];
-      }
-    } else if (status == kCLAuthorizationStatusNotDetermined) {
-      // First time - request "When In Use" first
-      [location_manager requestWhenInUseAuthorization];
+    CLAuthorizationStatus status;
+    if (@available(iOS 14.0, *)) {
+      status = location_manager.authorizationStatus;
     } else {
-      // Denied or restricted - start without background capability
-      [location_manager startUpdatingLocation];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+      /* the instance property above is iOS 14+; fall back to the
+         deprecated class method on older systems */
+      status = [CLLocationManager authorizationStatus];
+#pragma clang diagnostic pop
     }
+    [location_delegate handleAuthorizationStatus:status
+                                         manager:location_manager];
   } else {
     [location_manager startUpdatingLocation];
   }

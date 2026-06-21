@@ -32,6 +32,17 @@ class SensorListener;
 -(instancetype) init __attribute__((unavailable()));
 
 -(instancetype) init: (SensorListener *) _listener;
+
+#if TARGET_OS_IPHONE
+/**
+ * Apply a CoreLocation authorization status: start location updates and
+ * enable background updates when permitted.  Shared by
+ * InternalSensors::Init() and the authorization-change delegate callbacks
+ * so both follow exactly the same logic.
+ */
+-(void) handleAuthorizationStatus:(CLAuthorizationStatus)status
+                          manager:(CLLocationManager *)manager;
+#endif
 @end
 
 /**
