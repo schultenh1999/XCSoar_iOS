@@ -324,9 +324,15 @@ Optional environment variables::
   SIM_SMOKE_TESTS="TestCRC8 ..."  # Override smoke test selection
   SIM_SKIP_TESTS="TestWrapText"    # Space-separated tests to skip in simulator
 
-To compile for iOS / ARMv7, run::
+.. note::
 
-  make TARGET=IOS32 ipa
+   The 32-bit ARMv7 target (``TARGET=IOS32``) is obsolete.  Current Xcode
+   and iOS SDKs require a minimum deployment target of iOS 12 and no longer
+   ship an ARMv7 runtime, so this target cannot produce a working binary
+   with a recent toolchain.  It is retained for historical reference only;
+   use ``TARGET=IOS64`` instead.  Legacy invocation::
+
+     make TARGET=IOS32 ipa
 
 Compiling for macOS (with Homebrew)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -582,17 +588,17 @@ Defaults shown are from the build system (they can be overridden with
    - iOS armv7
    - yes
    - OpenGL ES
-   - Legacy 32-bit iOS (min iOS 10.0).
+   - Obsolete legacy 32-bit iOS (not buildable with current Xcode/SDK).
  * - ``IOS64``
    - iOS arm64
    - yes
    - OpenGL ES
-   - Device build (min iOS 11.0).
+   - Device build (min iOS 12.0).
  * - ``IOS64SIM``
    - iOS simulator arm64
    - yes
    - OpenGL ES
-   - Simulator SDK (min iOS 11.0).
+   - Simulator SDK (min iOS 12.0).
  * - ``PI``
    - Raspberry Pi 1-3
    - no
