@@ -4,6 +4,17 @@ set -euo pipefail
 # This script is meant for execution by Xcode.
 # Note: We could let Xcode pass through the build settings in the environment, but this currently at least breaks host compiling of tools (GenerateSineTable will then be build for target) and maybe has other unwanted side effects ... so we pass individual settings as script arguments.
 
+# Load build-time configuration (bundle id, versions, signing …) from the
+# optional darwin/.env so it is honoured by gmake and the signing step below.
+# `set -a` exports the variables so they reach the gmake child process.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
 # Input validation
 if [ $# -lt 2 ]; then
     echo "This script is meant to be executed by Xcode." >&2
